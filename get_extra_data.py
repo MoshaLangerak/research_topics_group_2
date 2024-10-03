@@ -30,6 +30,7 @@ for symbol in tqdm(stock_symbols, desc="Fetching stock data"):
         
         # Check if the fetched data is empty
         if stock_df.empty:
+            print(len(final_data))
             continue
         
         # Extract the closing prices as a list
@@ -46,4 +47,4 @@ for symbol in tqdm(stock_symbols, desc="Fetching stock data"):
 result_df = pd.DataFrame(final_data)
 
 # Save the final DataFrame to a CSV file
-result_df.to_csv("all_stocks_1year_data.csv", index=False)
+result_df.to_csv("data/all_stocks_1year_data.csv", index=False)
