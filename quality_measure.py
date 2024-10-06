@@ -69,8 +69,7 @@ def quality_measure(targets_subgroup, targets_baseline,
 
         # Compute the z-score for this window
         z_score_window = abs_diff_mean / standard_error_subgroup
-        if np.isinf(z_score_window):
-            z_score_window = 0
+
         all_z_scores.append(z_score_window)
 
     # Apply the aggregate function to the list of z-scores to get the final quality score

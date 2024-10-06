@@ -1,5 +1,6 @@
 import pandas as pd
 import pickle
+import numpy as np
 from scipy.stats import linregress
 def convert_to_percentage_growth(price_values):
     """
@@ -54,8 +55,24 @@ def make_growth_target_df(file_path):
     # to the 'target' column and extract the 'percentage_growth' part for each row
     stock_data['growth_target'] = [list(convert_to_percentage_growth(i)['percentage_growth']) for i in stock_data['target']]
 
+    # Replace infinite values with NaN
+    stock_data.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    # Extract the growth target column
+    growth_data = stock_data.loc[:, "growth_target"]
+
+    # Get the indices of rows with NaN or Inf values
+    nan_indices = growth_data[growth_data.apply(lambda x: any(pd.isna(i) for i in x))].index.tolist()
+    inf_indices = growth_data[growth_data.apply(lambda x: any(i in [np.inf, -np.inf] for i in x))].index.tolist()
+
+    # Get the union of the two indices
+    union = list(set(nan_indices).union(set(inf_indices)))
+
+
+    # Drop the rows with NaN or Inf values and reset the index
+    stock_data = stock_data.drop(union).reset_index(drop=True)
+    stock_data.drop(['target'], axis=1, inplace=True)
+    stock_data.dropna(inplace=True)
+    stock_data.reset_index(drop=True, inplace=True)
     return stock_data
 
-file_path = 'stock_data_for_emm.pkl'
-stock_data = make_growth_target_df(file_path)
-stock_data
