@@ -70,7 +70,7 @@ def make_growth_target_df(file_path):
 
 
     # Drop the rows with NaN or Inf values and reset the index
-    stock_data = stock_data.drop(union).reset_index(drop=True)
+    stock_data = stock_data.drop(union).reset_index()
     stock_data.drop(['target'], axis=1, inplace=True)
     stock_data.dropna(inplace=True)
     stock_data.reset_index(drop=True, inplace=True)
