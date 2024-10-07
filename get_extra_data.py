@@ -35,9 +35,10 @@ for symbol in tqdm(stock_symbols, desc="Fetching stock data"):
         
         # Extract the closing prices as a list
         closing_prices = stock_df['Close'].tolist()
-
+        dates = stock_df.index.tolist()
+        
         # Append the stock symbol and its time series to the final data list
-        final_data.append({'stocks': symbol, 'time_series': closing_prices})
+        final_data.append({'stocks': symbol, 'dates': dates, 'time_series': closing_prices})
 
     except Exception as e:
         # Skip the stock in case of any error (e.g., delisted stock)
