@@ -21,7 +21,7 @@ def make_rolling_windows(growth_target, window_size, window_stepsize):
 
 
 def quality_measure(targets_subgroup, targets_baseline,
-                    window_size=7, window_overlap=0,
+                    window_size=5, window_overlap=0,
                     aggregate_func_window=np.mean, aggregate_func=np.max):
     """
     Calculates a quality score by comparing the subgroup targets to the baseline targets using rolling windows.
