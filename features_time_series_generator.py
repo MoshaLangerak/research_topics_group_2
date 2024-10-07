@@ -322,7 +322,11 @@ def compute_all_features_for_timeseries(time_series, unpack_advanced_features=Tr
             'longest_continuous_increase': advanced_features['longest_continuous_increase']['length'],
             'biggest_continuous_increase': advanced_features['biggest_continuous_increase']['sum'],
             'longest_continuous_decrease': advanced_features['longest_continuous_decrease']['length'],
-            'biggest_continuous_decrease': advanced_features['biggest_continuous_decrease']['sum']
+            'biggest_continuous_decrease': advanced_features['biggest_continuous_decrease']['sum'],
+            'longest_continuous_increase_start': advanced_features['longest_continuous_increase']['start_window_index'],
+            'biggest_continuous_increase_start': advanced_features['biggest_continuous_increase']['start_window_index'],
+            'longest_continuous_decrease_start': advanced_features['longest_continuous_decrease']['start_window_index'],
+            'biggest_continuous_decrease_start': advanced_features['biggest_continuous_decrease']['start_window_index']
         }
 
     # Convert original dataset to the growth percentage time series
@@ -335,7 +339,9 @@ def compute_all_features_for_timeseries(time_series, unpack_advanced_features=Tr
     if unpack_advanced_features:
         advanced_features_growth_perc = {
             'biggest_continuous_increase_perc': advanced_features_growth_perc['biggest_continuous_increase_perc']['sum_percentage_growth'],
-            'biggest_continuous_decrease_perc': advanced_features_growth_perc['biggest_continuous_decrease_perc']['sum_percentage_growth']
+            'biggest_continuous_decrease_perc': advanced_features_growth_perc['biggest_continuous_decrease_perc']['sum_percentage_growth'],
+            'biggest_continuous_increase_perc_start': advanced_features_growth_perc['biggest_continuous_increase_perc']['start_window_index'],
+            'biggest_continuous_decrease_perc_start': advanced_features_growth_perc['biggest_continuous_decrease_perc']['start_window_index']
         }
 
     # Compute features
