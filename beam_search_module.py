@@ -203,7 +203,7 @@ def quality_measure(targets_subgroup, targets_baseline,
     return quality_score
 
 
-def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size):
+def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, max_subgroup_size=100000):
     """Performs beam search to identify optimal descriptors for subgroups.
 
     Args:
@@ -256,7 +256,7 @@ def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr
             # Evaluate each descriptor set generated
             for descriptor in descriptor_set:
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
-                if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
+                if len(subgroup) >= subgroup_size and len(subgroup)<max_subgroup_size:  # Ensure subgroup is large enough
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
                     quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
                     put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
@@ -385,7 +385,7 @@ def are_descriptors_similar(descriptor1, pq):
     # If no similar descriptors are found, return False
     return False
 
-def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size):
+def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, max_subgroup_size=100000):
     """Performs beam search with a constraint to avoid adding similar descriptors.
 
     Args:
@@ -439,7 +439,7 @@ def beam_search_with_constraint(data, targets_baseline, column_names, beam_width
             # Evaluate each descriptor set generated
             for descriptor in descriptor_set:
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
-                if len(subgroup) >= subgroup_size and not are_descriptors_similar(descriptor, results):  # Ensure subgroup is large enough and descriptor is not similar
+                if len(subgroup) >= subgroup_size and len(subgroup) < max_subgroup_size and not are_descriptors_similar(descriptor, results):  # Ensure subgroup is large enough and descriptor is not similar
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
                     quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
                     put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
