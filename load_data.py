@@ -1,7 +1,16 @@
 import pandas as pd
 import pickle
 import numpy as np
-from scipy.stats import linregress
+
+def load_data_from_pickle(file_path):
+    with open(file_path, 'rb') as f:
+        data = pickle.load(f)
+
+    return pd.DataFrame(data)
+
+def load_data_from_csv(file_path):
+    return pd.read_csv(file_path, index_col=0)
+
 def convert_to_percentage_growth(price_values):
     """
     Converts a list of price values to a percentage growth dataset.
@@ -29,8 +38,6 @@ def convert_to_percentage_growth(price_values):
     df['percentage_growth'] = df['percentage_growth'].round(2)
 
     return df[['day', 'price', 'percentage_growth']]
-
-
 
 def make_growth_target_df(file_path):
     """

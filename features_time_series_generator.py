@@ -1,6 +1,7 @@
 import pandas as pd
 import pickle
 from scipy.stats import linregress
+
 def convert_to_percentage_growth(df):
     """
     Converts a DataFrame with value data to include percentage growth.
@@ -27,6 +28,7 @@ def convert_to_percentage_growth(df):
     df['percentage_growth'] = df['percentage_growth'].round(5)
 
     return df[['window_index', 'value', 'percentage_growth']]
+
 def compute_extra_statistics_og_ts(df):
 
     # Compute delta
@@ -144,7 +146,6 @@ def compute_extra_statistics_og_ts(df):
     }
 
     return statistics
-
 
 def compute_simple_features_og_ts(df):
     features = {}
