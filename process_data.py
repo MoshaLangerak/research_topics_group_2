@@ -98,7 +98,7 @@ def compute_features_for_series(target_series):
 
     return new_features
 
-def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=10):
+def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=60):
     time_series = [eval(ts) for ts in df[time_series_col].values]
     dates = [eval(date, {"Timestamp": pd.Timestamp}) for date in df[date_col].values]
 
@@ -108,13 +108,15 @@ def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=
     for date in dates:
         all_dates.update(date)
 
-    # for each time_serie check if it has all the dates, if not add the missing dates and impute the values with the previous value
+    # for each time_serie check if it has all the dates, if not add the missing dates and impute the value
     time_series_to_remove = []
+    missing_dates_amounts = []
     for i, time_serie in enumerate(time_series):
         missing_dates = all_dates - set(dates[i])
+        missing_dates_amounts.append(len(missing_dates))
 
         if len(missing_dates) > allowed_missing:
-            time_series_to_remove.append(i)
+            time_series_to_remove.append(df.index[i])
             continue
 
         for date in missing_dates:
@@ -142,10 +144,13 @@ def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=
             # add the missing date
             dates[i].insert(previous_index + 1, date)
     
-    # update the dataframe
-    df = df.drop(time_series_to_remove)
+    # update the dataframe, first add the time_series (since old ones are still there) and then remove the rows
     df[time_series_col] = time_series
     df[date_col] = dates
+    df = df.drop(time_series_to_remove)
+
+    # print the mean amount of missing dates
+    print(np.mean(missing_dates_amounts))
 
     return df, time_series, dates
 

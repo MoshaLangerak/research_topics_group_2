@@ -1,5 +1,6 @@
 notebook_Mosha.ipynb
-datasets/stock_data_all_features.csv
+/datasets/stock_data_all_features.csv
+/datasets/stocks_time_series_data.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
