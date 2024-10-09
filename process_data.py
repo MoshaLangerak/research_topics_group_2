@@ -1,5 +1,3 @@
-from unittest.mock import inplace
-
 import pandas as pd
 import numpy as np
 import ast
@@ -10,7 +8,7 @@ from features_time_series_generator import *
 def join_dfs(stock_data, time_series_data):
     result = stock_data.join(time_series_data, how='inner')
     result.rename(columns={'time_series': 'target'}, inplace=True)
-    result['target'] = result['target'].apply(ast.literal_eval)
+    # result['target'] = result['target'].apply(ast.literal_eval)
     
     return result
 
@@ -100,13 +98,67 @@ def compute_features_for_series(target_series):
 
     return new_features
 
+def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=10):
+    time_series = [eval(ts) for ts in df[time_series_col].values]
+    dates = [eval(date, {"Timestamp": pd.Timestamp}) for date in df[date_col].values]
+
+    # create a set of all the dates
+    all_dates = set()
+
+    for date in dates:
+        all_dates.update(date)
+
+    # for each time_serie check if it has all the dates, if not add the missing dates and impute the values with the previous value
+    time_series_to_remove = []
+    for i, time_serie in enumerate(time_series):
+        missing_dates = all_dates - set(dates[i])
+
+        if len(missing_dates) > allowed_missing:
+            time_series_to_remove.append(i)
+            continue
+
+        for date in missing_dates:
+            # check if the date is the first or the last
+            if date < dates[i][0]:
+                time_serie.insert(0, time_serie[0])
+                dates[i].insert(0, date)
+                continue
+            if date > dates[i][-1]:
+                time_serie.append(time_serie[-1])
+                dates[i].append(date)
+                continue
+
+            # find the index of the previous date
+            previous_date = max([d for d in dates[i] if d < date])
+            previous_index = dates[i].index(previous_date)
+
+            # find the index of the next date
+            next_date = min([d for d in dates[i] if d > date])
+            next_index = dates[i].index(next_date)
+
+            # impute the missing date
+            time_serie.insert(previous_index + 1, (time_series[i][previous_index] + time_series[i][next_index]) / 2)
+
+            # add the missing date
+            dates[i].insert(previous_index + 1, date)
+    
+    # update the dataframe
+    df = df.drop(time_series_to_remove)
+    df[time_series_col] = time_series
+    df[date_col] = dates
+
+    return df, time_series, dates
+
+
 if __name__ == "__main__":
     stock_data = load_data_from_pickle('datasets/stock_data_for_emm.pkl')
 
     stock_data.drop('target', axis=1, inplace=True)
 
     time_series_data = load_data_from_csv('datasets/stocks_time_series_data.csv')
-    time_series_data = time_series_data.dropna(subset=['time_series'])
+    time_series_data = time_series_data.dropna(subset=['time_series']) # drop rows with missing time_series
+
+    time_series_data,_ ,_ = fix_time_series_missing_data(time_series_data, 'time_series', 'dates')
 
     stock_data = join_dfs(stock_data, time_series_data)
 

@@ -27,7 +27,7 @@ if __name__ == "__main__":
     stock_data = load_data_from_pickle(file_path)
 
     # Extract the stock symbols into a list
-    stock_symbols = stock_data.index.tolist()[:10]  # [:n]  if you want to run the first n stocks
+    stock_symbols = stock_data.index.tolist()[:100]  # [:n]  if you want to run the first n stocks
 
     # Set the date range for one year starting at Monday 2 October 2023 with the end data exactly 52 weeks later
     start_date = datetime.datetime(2023, 10, 2)
