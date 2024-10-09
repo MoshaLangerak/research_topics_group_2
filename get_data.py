@@ -52,4 +52,4 @@ if __name__ == "__main__":
     result_df = pd.DataFrame(final_data).set_index('symbol')
 
     # Save the final DataFrame to a CSV file
-    result_df.to_csv("datasets/all_stocks_1_year_data.csv")
+    result_df.to_csv("datasets/stocks_time_series_data.csv")

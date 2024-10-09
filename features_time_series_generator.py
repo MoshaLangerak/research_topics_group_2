@@ -1,5 +1,4 @@
 import pandas as pd
-import pickle
 from scipy.stats import linregress
 
 def convert_to_percentage_growth(df):
