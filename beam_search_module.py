@@ -194,7 +194,7 @@ def quality_measure(targets_subgroup, targets_baseline,
 
     # Calculate standard error of the subgroup for each window
     subgroup_std = np.std(subgroup_aggregated_windows, axis=0)
-    standard_error_subgroup = subgroup_std / np.sqrt(len(targets_subgroup))
+    standard_error_subgroup = subgroup_std #/ np.sqrt(len(targets_subgroup))
 
     # Calculate z-scores
     z_scores = np.divide(abs_diff_mean, standard_error_subgroup, where=standard_error_subgroup != 0)
@@ -553,7 +553,7 @@ def descriptors_similar_paper(quality, descriptor1, pq):
     quality_list = get_all_descriptors(pq, 0)
 
     # Early exit if quality difference exceeds threshold
-    if min(abs(quality - q) for q in quality_list) > 5:
+    if min(abs(quality - q) for q in quality_list) > 1000:
         return False
 
     # Compare against each descriptor in the queue
