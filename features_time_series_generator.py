@@ -26,10 +26,9 @@ def convert_to_percentage_growth(df):
     # Round the percentage growth to two decimal places
     df['percentage_growth'] = df['percentage_growth'].round(5)
 
-    return df[['window_index', 'value', 'percentage_growth']]
+    return df[['window_index', 'value', 'percentage_growth', 'date']]
 
 def compute_extra_statistics_og_ts(df):
-
     # Compute delta
     df['delta'] = df['value'].diff()
 
@@ -198,6 +197,28 @@ def compute_simple_features_growth_perc_ts(df):
     slope, intercept, r_value, p_value, std_err = linregress(df['window_index'], df['percentage_growth'])
     features['trend_slope'] = round(slope, 5)
 
+        # feature for best day of the week
+    df['day_of_week'] = df['date'].dt.dayofweek
+    features['best_day_of_week'] = df.groupby('day_of_week')['value'].mean().idxmax()
+
+    # feature for best month of the year
+    df['month'] = df['date'].dt.month
+    features['best_month'] = df.groupby('month')['value'].mean().idxmax()
+
+    # feature for best quarter of the year
+    df['quarter'] = df['date'].dt.quarter
+    features['best_quarter'] = df.groupby('quarter')['value'].mean().idxmax()
+
+    # feature for best day of the month
+    df['day_of_month'] = df['date'].dt.day
+    features['best_day_of_month'] = df.groupby('day_of_month')['value'].mean().idxmax()
+
+    # feature for best week of the month
+    df['week_of_month'] = df['date'].dt.isocalendar().week
+    features['best_week_of_month'] = df.groupby('week_of_month')['value'].mean().idxmax()
+
+    df.drop(columns=['day_of_week', 'month', 'quarter', 'day_of_month', 'week_of_month'], inplace=True)
+
     return features, df, slope, intercept
 
 def compute_extra_statistics_growth_perc_ts(df):
@@ -299,7 +320,7 @@ def compute_extra_statistics_growth_perc_ts(df):
 
     return statistics
 
-def compute_all_features_for_timeseries(time_series, unpack_advanced_features=True):
+def compute_all_features_for_timeseries(time_series, date_series, unpack_advanced_features=True):
     """
     Computes features for a given time series and its percentage growth version.
 
@@ -311,7 +332,7 @@ def compute_all_features_for_timeseries(time_series, unpack_advanced_features=Tr
             - dict: Contains features for both the original and percentage growth time series. All features are rounded to at most 5 decimals.
             - pd.DataFrame: The growth percentage DataFrame with 'window_index', 'value', and 'percentage_growth' columns.
     """
-    df_ts = pd.DataFrame({'window_index': range(1, len(time_series) + 1), 'value': time_series})
+    df_ts = pd.DataFrame({'window_index': range(1, len(time_series) + 1), 'value': time_series, 'date': date_series})
 
     # Compute features on original time series
     basic_features, _, _, _ = compute_simple_features_og_ts(df_ts)
@@ -356,3 +377,13 @@ def compute_all_features_for_timeseries(time_series, unpack_advanced_features=Tr
     features_total = {**features_total_og_basic, **features_total_og_adv, **features_total_growth_basic, **features_total_growth_adv}
 
     return features_total, features_total_hierarchical, df_ts_growth_perc
+
+if __name__ == '__main__':
+    # Example usage
+    time_series = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    date_series = pd.date_range('2022-01-01', periods=len(time_series)).tolist()
+
+    features_total, features_total_hierarchical, df_ts_growth_perc = compute_all_features_for_timeseries(time_series, date_series)
+    print(features_total)
+    print(features_total_hierarchical)
+    print(df_ts_growth_perc)

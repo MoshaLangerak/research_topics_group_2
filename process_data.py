@@ -89,11 +89,13 @@ def make_growth_target_df(stock_data):
 
     return stock_data
 
-def compute_features_for_series(target_series):
+def compute_features_for_df(df):
     new_features = {}
 
-    for time_series in target_series:
-        features_timeseries,_,_ = compute_all_features_for_timeseries(time_series, True)
+    for i, row in df.iterrows():
+        time_series = row['target']
+        date_series = row['dates']
+        features_timeseries,_,_ = compute_all_features_for_timeseries(time_series, date_series, True)
         new_features = merge_dicts(new_features, features_timeseries)
 
     return new_features
@@ -167,7 +169,7 @@ if __name__ == "__main__":
 
     stock_data = join_dfs(stock_data, time_series_data)
 
-    stock_data_all_features = stock_data.assign(**compute_features_for_series(stock_data['target']))
+    stock_data_all_features = stock_data.assign(**compute_features_for_df(stock_data))
 
     stock_data_all_features = make_growth_target_df(stock_data_all_features)
 
