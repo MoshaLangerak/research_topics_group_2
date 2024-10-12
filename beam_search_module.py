@@ -192,12 +192,11 @@ def quality_measure(targets_subgroup, targets_baseline,
     # Calculate absolute differences between means for each window
     abs_diff_mean = np.abs(subgroup_means - baseline_means)
 
-    # Calculate standard error of the subgroup for each window
+    # Calculate standard deviation of the subgroup for each window
     subgroup_std = np.std(subgroup_aggregated_windows, axis=0)
-    standard_error_subgroup = subgroup_std / np.sqrt(len(targets_subgroup))
 
     # Calculate z-scores
-    z_scores = np.divide(abs_diff_mean, standard_error_subgroup, where=standard_error_subgroup != 0)
+    z_scores = abs_diff_mean / subgroup_std
 
     # Calculate the final quality score
     quality_score = aggregate_func(z_scores)
@@ -205,7 +204,7 @@ def quality_measure(targets_subgroup, targets_baseline,
     return quality_score
 
 
-def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, max_subgroup_size=100000):
+def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size):
     """Performs beam search to identify optimal descriptors for subgroups.
 
     Args:
@@ -258,7 +257,7 @@ def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr
             # Evaluate each descriptor set generated
             for descriptor in descriptor_set:
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
-                if len(subgroup) >= subgroup_size and len(subgroup)<max_subgroup_size:  # Ensure subgroup is large enough
+                if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
                     quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
                     put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
@@ -299,10 +298,8 @@ def filter_df_on_descriptors(df, descriptors):
 
 
 ###########################################################################################################
-################# BEAM SEARCH WITH (SELF MADE) CONSTRAINT #################################################
-### it is finished but not perfect and complicated, maybe finding something in the literature is better ###
+################# BEAM SEARCH WITH CONSTRAINT FROM PAPER ##################################################
 ###########################################################################################################
-
 
 
 def get_all_descriptors(pq, index=1):
@@ -330,64 +327,81 @@ def get_all_descriptors(pq, index=1):
 
     return info
 
+# Helper function to check if two metrics match with tolerance
+def metrics_match(metric1, metric2):
+    value1, func1 = metric1
+    value2, func2 = metric2
 
-def are_descriptors_similar(descriptor1, pq):
-    """Check if the given descriptor is similar to any descriptors in the priority queue.
+    # If functions are different, metrics don't match
+    if func1 != func2:
+        return False
 
-    Args:
-        descriptor1: The first descriptor to compare (a list of (metric, value, func) tuples).
-        pq: A priority queue containing other descriptors.
+    # If both values are numbers, compare within tolerance
+    if value1 != value2:
+        return False
 
-    Returns:
-        True if a similar descriptor is found in the queue, False otherwise.
-    """
-    tolerance = 0.25  # Tolerance range for numeric comparison
-    desc1_dict = {metric: (value, func) for metric, value, func in descriptor1}  # Convert descriptor1 to a dictionary
-    descriptor_list = get_all_descriptors(pq)  # Get all descriptors from the queue
+    # In all other cases, no match
+    return True
 
-    # Iterate through each descriptor in the list
+def descriptors_similar_paper(quality, descriptor1, pq, min_quality_improvement):
+    # If descriptor1 has only one metric, exit early
+    if len(descriptor1) == 1:
+        return False
+
+    total_conditions = len(descriptor1) - 1
+    descriptor_list = get_all_descriptors(pq, 1)
+    quality_list = get_all_descriptors(pq, 0)
+
+    # Early exit based on quality difference
+    if min(abs(quality - q) for q in quality_list) > min_quality_improvement:
+        return False
+
+    # Compare descriptor1 against all other descriptors in pq
     for descriptor2 in descriptor_list:
-        desc2_dict = {metric: (value, func) for metric, value, func in descriptor2}  # Convert descriptor2 to a dictionary
+        match_count = 0
 
-        # If the length of descriptors doesn't match, skip
-        if len(desc1_dict) != len(desc2_dict):
-            continue
+        # Create a copy of descriptor2 to mark used metrics
+        remaining_descriptor2 = list(descriptor2)
 
-        all_metrics_match = True  # Flag to track if all metrics match
+        # Compare each metric in descriptor1 to all available metrics in descriptor2
+        for metric1_name, value1, func1 in descriptor1:
+            matched = False
 
-        # Check each metric in descriptor1
-        for metric in desc1_dict:
-            if metric in desc2_dict:
-                value1, func1 = desc1_dict[metric]
-                value2, func2 = desc2_dict[metric]
+            # Iterate over all metrics in descriptor2 with the same name
+            for i, (metric2_name, value2, func2) in enumerate(remaining_descriptor2):
+                if metric1_name == metric2_name:
+                    if metrics_match((value1, func1), (value2, func2)):
+                        matched = True
+                        # Mark this metric as used by removing it from remaining metrics
+                        remaining_descriptor2.pop(i)
+                        break
 
-                # Check if the functions are the same
-                if func1 != func2:
-                    all_metrics_match = False
-                    break
+            if matched:
+                match_count += 1
 
-                # Check if numeric values are within tolerance range
-                if (not isinstance(value1, str)) and abs(value1 - value2) > abs(tolerance * value1):
-                    all_metrics_match = False
-                    break
+            # If all but one metrics match, descriptors are considered similar
+            if match_count >= total_conditions:
+                return True
 
-                # For strings, check if values are exactly the same
-                if isinstance(value1, str) and value1 != value2:
-                    all_metrics_match = False
-                    break
-            else:
-                # If metric in descriptor1 is not in descriptor2, they are not similar
-                all_metrics_match = False
-                break
-
-        # If all metrics match, return True (descriptors are similar)
-        if all_metrics_match:
-            return True
-
-    # If no similar descriptors are found, return False
+    # If no matching descriptor is found, return False
     return False
 
-def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, max_subgroup_size=100000):
+def dominance_pruning(pq, subgroup_size, col_index_dict, targets_baseline, data, target_ind, min_quality_improvement):
+    descriptor_list = get_all_descriptors(pq, 1)
+    quality_list = get_all_descriptors(pq, 0)
+    for org_quality, org_descriptor in zip(quality_list, descriptor_list):
+        if len(org_descriptor) < 3:
+            continue
+        for cc in range(len(org_descriptor)):
+            temp_subgroup = org_descriptor[:cc] + org_descriptor[cc+1:]
+            subgroup = extract_subgroup(temp_subgroup, data, col_index_dict)  # Extract subgroup for the current descriptor
+            if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough and descriptor is not similar
+                targets_subgroup = [j[target_ind] for j in subgroup]  # Extract target values for the subgroup
+                quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
+                if not descriptors_similar_paper(quality_result, temp_subgroup, pq, min_quality_improvement):# and quality_result > org_quality:
+                    put_item_in_queue(pq, quality_result, tuple(temp_subgroup), len(subgroup))
+
+def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, min_quality_improvement):
     """Performs beam search with a constraint to avoid adding similar descriptors.
 
     Args:
@@ -402,6 +416,7 @@ def beam_search_with_constraint(data, targets_baseline, column_names, beam_width
         target: The target variable for which to evaluate subgroups.
         types: The types of each column in the dataset (e.g., numeric, binary, nominal).
         window_size: The size of the rolling window.
+        min_quality_improvement: minimal amount of improvement needed for beam search to include subgroup with similar descriptors in the results
 
     Returns:
         A list of the best descriptor sets found during the search, ensuring no similar descriptors.
@@ -441,89 +456,10 @@ def beam_search_with_constraint(data, targets_baseline, column_names, beam_width
             # Evaluate each descriptor set generated
             for descriptor in descriptor_set:
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
-                if len(subgroup) >= subgroup_size and len(subgroup) < max_subgroup_size and not are_descriptors_similar(descriptor, results):  # Ensure subgroup is large enough and descriptor is not similar
+                if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
                     quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
-                    put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
-                    put_item_in_queue(beam, quality_result, tuple(descriptor))  # Add to the current beam
-
-        # After processing the beam, update the beam queue with new combinations
-        while not beam.empty():
-            new_combination = beam.get()  # Get the highest quality descriptor from the beam
-            new_combination = new_combination[1]  # Extract the descriptor from the tuple
-            beam_queue.append(new_combination)  # Add it to the next depth of the beam search
-
-    # Compile results into a list and reverse to have the best results first
-    results_list = []
-    while not results.empty():
-        item = results.get()  # Get items from the results queue
-        results_list.append(item)  # Add to the results list
-    results_list.reverse()  # Reverse the list to have best results first
-
-    return results_list  # Return the list of best descriptor sets
-
-###########################################################################################################
-################# BEAM SEARCH WITH CONSTRAINT FROM PAPER ##################################################
-###########################################################################################################
-
-def beam_search_with_constraint_paper(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, max_subgroup_size=100000):
-    """Performs beam search with a constraint to avoid adding similar descriptors.
-
-    Args:
-        data: The dataset to analyze.
-        targets_baseline: The baseline target values for comparison.
-        column_names: The names of the columns in the dataset.
-        beam_width: The number of descriptors to keep at each depth level.
-        beam_depth: The maximum depth of the beam search.
-        nr_bins: The number of bins to create for numeric attributes.
-        nr_saved: The number of best results to save.
-        subgroup_size: The minimum size of a subgroup to consider.
-        target: The target variable for which to evaluate subgroups.
-        types: The types of each column in the dataset (e.g., numeric, binary, nominal).
-        window_size: The size of the rolling window.
-
-    Returns:
-        A list of the best descriptor sets found during the search, ensuring no similar descriptors.
-    """
-    # Create dictionaries for indexing columns by name and vice versa
-    index_col_dict = {i: col for i, col in enumerate(column_names)}
-    col_index_dict = {col: i for i, col in enumerate(column_names)}
-    target_ind = column_names.index(target)  # Get index of the target column
-    att_indices = list(range(len(column_names)))  # Create a list of all indices
-    att_indices.remove(target_ind)  # Remove the target index from attribute indices
-
-    # Prepare data windows with rolling windows for the target variable
-    data_windows = []
-    for row in data:
-        new_row = row[:]  # Create a copy of the row
-        new_row[target_ind] = make_rolling_windows(row[target_ind], window_size)  # Apply rolling window
-        data_windows.append(new_row)  # Add the new row to data_windows
-
-    # Update the data and baseline targets to use rolling windows
-    data = data_windows
-    targets_baseline = make_rolling_windows(targets_baseline, window_size)
-
-    # Initialize a deque for the beam search and a priority queue for results
-    beam_queue = deque([()])  # Start with an empty seed
-    results = PriorityQueue(nr_saved)  # Queue to hold the best results
-    results.put((0, [(0, 0, 0)], 0))  # Add a dummy descriptor to initialize
-
-    # Iterate through each depth of the beam search
-    for depth in range(beam_depth):
-        beam = PriorityQueue(beam_width)  # Initialize a new beam for this depth
-
-        # While there are seeds in the beam queue
-        while bool(beam_queue):
-            seed = beam_queue.popleft()  # Get the next seed descriptor
-            descriptor_set = refin(seed, data, types, nr_bins, att_indices, index_col_dict, col_index_dict)  # Refine descriptors based on seed
-
-            # Evaluate each descriptor set generated
-            for descriptor in descriptor_set:
-                subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
-                if len(subgroup) >= subgroup_size and len(subgroup) < max_subgroup_size:  # Ensure subgroup is large enough and descriptor is not similar
-                    targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
-                    quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
-                    if not descriptors_similar_paper(quality_result, descriptor, results): # check if there are already subgroups with similar descriptors
+                    if not descriptors_similar_paper(quality_result, descriptor, results, min_quality_improvement): # check if there are already subgroups with similar descriptors
                         put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
                         put_item_in_queue(beam, quality_result, tuple(descriptor))  # Add to the current beam
 
@@ -533,6 +469,7 @@ def beam_search_with_constraint_paper(data, targets_baseline, column_names, beam
             new_combination = new_combination[1]  # Extract the descriptor from the tuple
             beam_queue.append(new_combination)  # Add it to the next depth of the beam search
 
+    dominance_pruning(results, subgroup_size, col_index_dict, targets_baseline, data, target_ind, min_quality_improvement)
     # Compile results into a list and reverse to have the best results first
     results_list = []
     while not results.empty():
@@ -542,53 +479,7 @@ def beam_search_with_constraint_paper(data, targets_baseline, column_names, beam
 
     return results_list  # Return the list of best descriptor sets
 
-def descriptors_similar_paper(quality, descriptor1, pq):
 
-    if len(descriptor1) == 1:
-        return False
-
-    tolerance = 0.1
-    desc1_dict = {metric: (value, func) for metric, value, func in descriptor1}
-    descriptor_list = get_all_descriptors(pq, 1)
-    quality_list = get_all_descriptors(pq, 0)
-
-    # Early exit if quality difference exceeds threshold
-    if min(abs(quality - q) for q in quality_list) > 5:
-        return False
-
-    # Compare against each descriptor in the queue
-    for descriptor2 in descriptor_list:
-
-        desc2_dict = {metric: (value, func) for metric, value, func in descriptor2}
-
-        match_count = 0
-
-        for metric, (value1, func1) in desc1_dict.items():
-            if metric not in desc2_dict:
-                continue  # If a metric is missing, no need to continue
-
-            value2, func2 = desc2_dict[metric]
-
-            # Function mismatch, skip this descriptor
-            if func1 != func2:
-                continue
-
-            # Numeric comparison within tolerance
-            if isinstance(value1, (int, float)) and isinstance(value2, (int, float)):
-                if abs(value1 - value2) > abs(tolerance * value1):
-                    continue  # Values out of tolerance range
-
-            # String comparison for non-numeric values
-            elif isinstance(value1, str) and value1 != value2:
-                continue  # String values don't match
-
-            match_count += 1
-
-            # Early exit when all metrics except 1 match
-            if match_count >= len(descriptor1)-1:
-                return True
-
-    return False
 
 
 
