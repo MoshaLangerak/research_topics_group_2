@@ -89,43 +89,43 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
     return fig
 
 
-# Plot two test cases:
-
-# TEST CASE 1: Three time series each with 100 points
-
-# Create subgroups
-subgroup_ts1 = list(3 + np.random.normal(0, 0.5, 100))  # Mean 3, small noise with standard deviation of 0.5
-subgroup_ts2 = list(5 + np.random.normal(0, 0.5, 100))  # Mean 5, small noise with standard deviation of 0.5
-subgroup_all_ts = {'ts1': subgroup_ts1, 'ts2': subgroup_ts2}
-
-# Create baseline (population line)
-baseline = list(0 + np.random.normal(0, 0.5, 100))  # Mean 0, small noise with standard deviation of 0.5
-
-# Create the dates
-start_date = datetime.datetime.now()
-dates = [start_date + datetime.timedelta(days=i) for i in range(100)]
-
-fig = plot_baseline_and_subgroup(subgroup_all_ts, baseline, dates)
-fig.show()
-
-# TEST CASE 2: Create n time series
-
-num_subgroups = 10
-
-baseline = list(0 + np.random.normal(0, 0.5, 100))  
-
-# Initialize an empty dictionary to store subgroup time series
-subgroups_dict = {}
-
-for i in range(1, num_subgroups + 1):
-    # For diversity, adjust the mean for each subgroup
-    mean = 3 + i * 0.5  
-    subgroup = list(mean + np.random.normal(0, 0.5, 100))
-    subgroup_all_ts[f'ts{i}'] = subgroup  # Keys: 'ts1', 'ts2', ..., 'tsn'
-
-# Create the dates
-start_date = datetime.datetime.now()
-dates = [start_date + datetime.timedelta(days=i) for i in range(100)]
-
-fig = plot_baseline_and_subgroup(subgroup_all_ts, baseline, dates, subgroup_opacity=0.4, short_legend=True)
-fig.show()
+# # Plot two test cases:
+#
+# # TEST CASE 1: Three time series each with 100 points
+#
+# # Create subgroups
+# subgroup_ts1 = list(3 + np.random.normal(0, 0.5, 100))  # Mean 3, small noise with standard deviation of 0.5
+# subgroup_ts2 = list(5 + np.random.normal(0, 0.5, 100))  # Mean 5, small noise with standard deviation of 0.5
+# subgroup_all_ts = {'ts1': subgroup_ts1, 'ts2': subgroup_ts2}
+#
+# # Create baseline (population line)
+# baseline = list(0 + np.random.normal(0, 0.5, 100))  # Mean 0, small noise with standard deviation of 0.5
+#
+# # Create the dates
+# start_date = datetime.datetime.now()
+# dates = [start_date + datetime.timedelta(days=i) for i in range(100)]
+#
+# fig = plot_baseline_and_subgroup(subgroup_all_ts, baseline, dates)
+# fig.show()
+#
+# # TEST CASE 2: Create n time series
+#
+# num_subgroups = 10
+#
+# baseline = list(0 + np.random.normal(0, 0.5, 100))
+#
+# # Initialize an empty dictionary to store subgroup time series
+# subgroups_dict = {}
+#
+# for i in range(1, num_subgroups + 1):
+#     # For diversity, adjust the mean for each subgroup
+#     mean = 3 + i * 0.5
+#     subgroup = list(mean + np.random.normal(0, 0.5, 100))
+#     subgroup_all_ts[f'ts{i}'] = subgroup  # Keys: 'ts1', 'ts2', ..., 'tsn'
+#
+# # Create the dates
+# start_date = datetime.datetime.now()
+# dates = [start_date + datetime.timedelta(days=i) for i in range(100)]
+#
+# fig = plot_baseline_and_subgroup(subgroup_all_ts, baseline, dates, subgroup_opacity=0.4, short_legend=True)
+# fig.show()

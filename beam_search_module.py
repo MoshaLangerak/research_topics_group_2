@@ -117,7 +117,7 @@ def refin(seed, data, types, nr_bins, descr_indices, index_col_dict, col_index_d
 
     return res
 
-def put_item_in_queue(queue, quality, descriptor, size=0):
+def put_item_in_queue(queue, quality, descriptor, size=0, window_index=0):
     """Adds an item to a priority queue based on its quality.
 
     Args:
@@ -127,13 +127,13 @@ def put_item_in_queue(queue, quality, descriptor, size=0):
         size: The size of the subgroup represented by the descriptor.
     """
     if queue.full():  # if the queue is full
-        min_quality, min_descriptor, min_size = queue.get()  # get the lowest quality item
+        min_quality, min_descriptor, min_size, min_window_index = queue.get()  # get the lowest quality item
         if min_quality >= quality:  # if the new item is not better, put the old one back
-            queue.put((min_quality, min_descriptor, min_size))
+            queue.put((min_quality, min_descriptor, min_size, min_window_index))
         else:  # otherwise, add the new item
-            queue.put((quality, descriptor, size))
+            queue.put((quality, descriptor, size, window_index))
     else:
-        queue.put((quality, descriptor, size))  # add new item to the queue
+        queue.put((quality, descriptor, size, window_index))  # add new item to the queue
 
 def categorize_columns_in_order(df, att_columns):
     """Categorizes columns of a DataFrame into numeric, binary, and nominal types.
@@ -201,7 +201,9 @@ def quality_measure(targets_subgroup, targets_baseline,
     # Calculate the final quality score
     quality_score = aggregate_func(z_scores)
 
-    return quality_score
+    max_index_quality = np.argmax(z_scores)
+
+    return quality_score, max_index_quality
 
 
 def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size):
@@ -259,7 +261,7 @@ def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
                 if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
-                    quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
+                    quality_result,_ = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
                     put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
                     put_item_in_queue(beam, quality_result, tuple(descriptor))  # Add to the current beam
 
@@ -355,9 +357,14 @@ def descriptors_similar_paper(quality, descriptor1, pq, min_quality_improvement)
     # Early exit based on quality difference
     if min(abs(quality - q) for q in quality_list) > min_quality_improvement:
         return False
+    # Find indices where abs(quality - q) <= min_quality_improvement
+    indices = [i for i, q in enumerate(quality_list) if abs(quality - q) <= min_quality_improvement]
+
+    # Filter descriptor_list based on these indices
+    filtered_descriptors = [descriptor_list[i] for i in indices]
 
     # Compare descriptor1 against all other descriptors in pq
-    for descriptor2 in descriptor_list:
+    for descriptor2 in filtered_descriptors:
         match_count = 0
 
         # Create a copy of descriptor2 to mark used metrics
@@ -397,9 +404,9 @@ def dominance_pruning(pq, subgroup_size, col_index_dict, targets_baseline, data,
             subgroup = extract_subgroup(temp_subgroup, data, col_index_dict)  # Extract subgroup for the current descriptor
             if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough and descriptor is not similar
                 targets_subgroup = [j[target_ind] for j in subgroup]  # Extract target values for the subgroup
-                quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
+                quality_result, window_index_quality = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
                 if not descriptors_similar_paper(quality_result, temp_subgroup, pq, min_quality_improvement):# and quality_result > org_quality:
-                    put_item_in_queue(pq, quality_result, tuple(temp_subgroup), len(subgroup))
+                    put_item_in_queue(pq, quality_result, tuple(temp_subgroup), len(subgroup), window_index_quality)
 
 def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, min_quality_improvement):
     """Performs beam search with a constraint to avoid adding similar descriptors.
@@ -442,7 +449,7 @@ def beam_search_with_constraint(data, targets_baseline, column_names, beam_width
     # Initialize a deque for the beam search and a priority queue for results
     beam_queue = deque([()])  # Start with an empty seed
     results = PriorityQueue(nr_saved)  # Queue to hold the best results
-    results.put((0, [(0, 0, 0)], 0))  # Add a dummy descriptor to initialize
+    results.put((0, [(0, 0, 0)], 0, 0))  # Add a dummy descriptor to initialize
 
     # Iterate through each depth of the beam search
     for depth in range(beam_depth):
@@ -458,9 +465,9 @@ def beam_search_with_constraint(data, targets_baseline, column_names, beam_width
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
                 if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
-                    quality_result = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
+                    quality_result, window_index_quality = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
                     if not descriptors_similar_paper(quality_result, descriptor, results, min_quality_improvement): # check if there are already subgroups with similar descriptors
-                        put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
+                        put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup), window_index_quality)  # Add to results queue
                         put_item_in_queue(beam, quality_result, tuple(descriptor))  # Add to the current beam
 
         # After processing the beam, update the beam queue with new combinations
