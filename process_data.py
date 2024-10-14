@@ -156,9 +156,11 @@ def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=
 
     return df, time_series, dates
 
-def filter_growth_target_for_max_value(df, max_value=50):
+def filter_growth_target_for_outliers(df, max_growth_value=100, min_target_value=1):
     # filter out the rows with a max value in the growth target
-    return df[df['growth_target'].apply(lambda x: max(x) < max_value)]
+    df = df[df['growth_target'].apply(lambda x: max(x) < max_growth_value)]
+    df = df[df['target'].apply(lambda x: min(x) > min_target_value)]
+    return df
 
 
 if __name__ == "__main__":
@@ -177,9 +179,9 @@ if __name__ == "__main__":
 
     stock_data_all_features = make_growth_target_df(stock_data_all_features)
 
-    stock_data_all_features = filter_growth_target_for_max_value(stock_data_all_features)
+    stock_data_all_features = filter_growth_target_for_outliers(stock_data_all_features)
 
     # stock_data_all_features.to_pickle('datasets/stock_data_all_features.pkl')
-    stock_data_all_features.to_csv('datasets/stock_data_all_features.csv', index=False)
+    stock_data_all_features.to_csv('datasets/stock_data_all_features_with_high_growth.csv', index=False)
 
     
