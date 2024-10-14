@@ -156,6 +156,10 @@ def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=
 
     return df, time_series, dates
 
+def filter_growth_target_for_max_value(df, max_value=50):
+    # filter out the rows with a max value in the growth target
+    return df[df['growth_target'].apply(lambda x: max(x) < max_value)]
+
 
 if __name__ == "__main__":
     stock_data = load_data_from_pickle('datasets/stock_data_for_emm.pkl')
@@ -172,6 +176,8 @@ if __name__ == "__main__":
     stock_data_all_features = stock_data.assign(**compute_features_for_df(stock_data))
 
     stock_data_all_features = make_growth_target_df(stock_data_all_features)
+
+    stock_data_all_features = filter_growth_target_for_max_value(stock_data_all_features)
 
     # stock_data_all_features.to_pickle('datasets/stock_data_all_features.pkl')
     stock_data_all_features.to_csv('datasets/stock_data_all_features.csv', index=False)
