@@ -408,7 +408,7 @@ def dominance_pruning(pq, subgroup_size, col_index_dict, targets_baseline, data,
                 if not descriptors_similar_paper(quality_result, temp_subgroup, pq, min_quality_improvement):# and quality_result > org_quality:
                     put_item_in_queue(pq, quality_result, tuple(temp_subgroup), len(subgroup), window_index_quality)
 
-def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, min_quality_improvement):
+def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, min_quality_improvement, agg_func=np.max):
     """Performs beam search with a constraint to avoid adding similar descriptors.
 
     Args:
@@ -465,7 +465,7 @@ def beam_search_with_constraint(data, targets_baseline, column_names, beam_width
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
                 if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
-                    quality_result, window_index_quality = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
+                    quality_result, window_index_quality = quality_measure(targets_subgroup, targets_baseline, aggregate_func= agg_func)  # Calculate quality measure
                     if not descriptors_similar_paper(quality_result, descriptor, results, min_quality_improvement): # check if there are already subgroups with similar descriptors
                         put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup), window_index_quality)  # Add to results queue
                         put_item_in_queue(beam, quality_result, tuple(descriptor))  # Add to the current beam
