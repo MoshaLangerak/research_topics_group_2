@@ -6,7 +6,7 @@ import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 
 
-def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_labels=5, aggregate_subgroup=False, baseline_color="blue", subgroup_color="green", subgroup_opacity=0.7, short_legend=False):
+def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_labels=5, aggregate_subgroup=False, baseline_color="blue", subgroup_color="green", subgroup_opacity=0.7, short_legend=False, linewidth=2):
     # Convert datetime to correct format
     date_labels = [dt.strftime('%d-%m-%Y') for dt in dates]
     
@@ -30,7 +30,7 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
             y=aggregate_subgroup_ts,
             mode='lines',
             name='Subgroups',  # Single legend entry for all subgroups --> default when aggregated
-            line=dict(color=subgroup_color, width=2),
+            line=dict(color=subgroup_color, width=linewidth),
             opacity=1  # Full opacity --> default when aggregated
         ))
     else:
@@ -42,7 +42,7 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
                     y=subgroup,
                     mode='lines',
                     name='Subgroups',  # Single legend entry for all subgroups
-                    line=dict(color=subgroup_color),
+                    line=dict(color=subgroup_color, width=linewidth),
                     opacity=subgroup_opacity,
                     showlegend=(idx == 0)  # Show legend only for the first subgroup trace
                 ))
@@ -54,7 +54,7 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
                     y=subgroup,
                     mode='lines',
                     name=key.capitalize(),
-                    line=dict(color=subgroup_color),
+                    line=dict(color=subgroup_color, width=linewidth),
                     opacity=subgroup_opacity
                 ))
 
@@ -91,7 +91,7 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
 
     return fig
 
-def plot_baseline_and_subgroup_heatmap(subgroups_dict, baseline, dates, freq_xaxis_labels=5, aggregate_subgroup=False, baseline_color="blue", subgroup_color="green", subgroup_opacity=0.7, short_legend=False):
+def plot_baseline_and_subgroup_heatmap(subgroups_dict, baseline, dates, freq_xaxis_labels=5, aggregate_subgroup=False, baseline_color="blue", subgroup_color="green", subgroup_opacity=0.7, short_legend=False, linewidth=2):
     # Convert datetime to correct format
     date_labels = [dt.strftime('%d-%m-%Y') for dt in dates]
 
@@ -118,7 +118,7 @@ def plot_baseline_and_subgroup_heatmap(subgroups_dict, baseline, dates, freq_xax
             y=aggregate_subgroup_ts,
             mode='lines',
             name='Subgroups',  # Single legend entry for all subgroups --> default when aggregated
-            line=dict(color=subgroup_color, width=2),
+            line=dict(color=subgroup_color, width=linewidth),
             opacity=1  # Full opacity --> default when aggregated
         ))
     else:
@@ -131,7 +131,7 @@ def plot_baseline_and_subgroup_heatmap(subgroups_dict, baseline, dates, freq_xax
                     y=subgroup,
                     mode='lines',
                     name='Subgroups',  # Single legend entry for all subgroups
-                    line=dict(color=color),
+                    line=dict(color=color,width=linewidth),
                     opacity=subgroup_opacity,
                     showlegend=(idx == 0)  # Show legend only for the first subgroup trace
                 ))
@@ -144,7 +144,7 @@ def plot_baseline_and_subgroup_heatmap(subgroups_dict, baseline, dates, freq_xax
                     y=subgroup,
                     mode='lines',
                     name=key.capitalize(),
-                    line=dict(color=color),
+                    line=dict(color=color,width=linewidth),
                     opacity=subgroup_opacity
                 ))
 

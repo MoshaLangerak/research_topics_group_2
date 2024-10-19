@@ -194,9 +194,10 @@ def quality_measure(targets_subgroup, targets_baseline,
 
     # Calculate standard deviation of the subgroup for each window
     subgroup_std = np.std(subgroup_aggregated_windows, axis=0)
+    safe_subgroup_std = np.where(subgroup_std == 0, 1, subgroup_std)
 
     # Calculate z-scores
-    z_scores = abs_diff_mean / subgroup_std
+    z_scores = abs_diff_mean / safe_subgroup_std#(subgroup_std / np.sqrt(0.5*len(targets_subgroup)))
 
     # Calculate the final quality score
     quality_score = aggregate_func(z_scores)
