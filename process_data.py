@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import ast
+import datetime
 
 from load_data import load_data_from_pickle, load_data_from_csv
 from features_time_series_generator import *
@@ -100,15 +100,12 @@ def compute_features_for_df(df):
 
     return new_features
 
-def fix_time_series_missing_data(df, time_series_col, date_col, allowed_missing=60):
+def fix_time_series_missing_data(df, all_dates, time_series_col, date_col, allowed_missing=60):
     time_series = [eval(ts) for ts in df[time_series_col].values]
     dates = [eval(date, {"Timestamp": pd.Timestamp}) for date in df[date_col].values]
 
     # create a set of all the dates
-    all_dates = set()
-
-    for date in dates:
-        all_dates.update(date)
+    all_dates = set(all_dates)
 
     # for each time_serie check if it has all the dates, if not add the missing dates and impute the value
     time_series_to_remove = []
@@ -162,6 +159,14 @@ def filter_growth_target_for_outliers(df, max_growth_value=100, min_target_value
     df = df[df['target'].apply(lambda x: min(x) > min_target_value)]
     return df
 
+def generate_dates_for_time_series(start_date, end_date):
+    dates = []
+    current_date = start_date
+    while current_date <= end_date:
+        if current_date.weekday() < 5:
+            dates.append(current_date)
+        current_date += datetime.timedelta(days=1)
+    return dates
 
 if __name__ == "__main__":
     stock_data = load_data_from_pickle('datasets/stock_data_for_emm.pkl')
@@ -171,7 +176,12 @@ if __name__ == "__main__":
     time_series_data = load_data_from_csv('datasets/stocks_time_series_data.csv')
     time_series_data = time_series_data.dropna(subset=['time_series']) # drop rows with missing time_series
 
-    time_series_data,_ ,_ = fix_time_series_missing_data(time_series_data, 'time_series', 'dates')
+    start_date = datetime.datetime(2023, 10, 2)
+    end_date = datetime.datetime(2024, 9, 29)
+
+    dates = generate_dates_for_time_series(start_date, end_date)
+
+    time_series_data,_ ,_ = fix_time_series_missing_data(time_series_data, dates, 'time_series', 'dates')
 
     stock_data = join_dfs(stock_data, time_series_data)
 
@@ -182,6 +192,6 @@ if __name__ == "__main__":
     stock_data_all_features = filter_growth_target_for_outliers(stock_data_all_features)
 
     # stock_data_all_features.to_pickle('datasets/stock_data_all_features.pkl')
-    stock_data_all_features.to_csv('datasets/stock_data_all_features_with_high_growth.csv', index=False)
+    stock_data_all_features.to_csv('datasets/stock_data_all_features.csv', index=False)
 
     
