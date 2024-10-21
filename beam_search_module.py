@@ -170,7 +170,7 @@ def make_rolling_windows(growth_target, window_size):
     return np.lib.stride_tricks.sliding_window_view(growth_target, window_shape=window_size)[::window_size]
 
 def quality_measure(targets_subgroup, targets_baseline,
-                    aggregate_func_window=np.mean, aggregate_func=np.max):
+                    aggregate_func_window=np.mean, aggregate_func=np.max, dataset_size = 7849):
     """Calculates a quality measure for a subgroup compared to a baseline.
 
     Args:
@@ -204,7 +204,16 @@ def quality_measure(targets_subgroup, targets_baseline,
 
     max_index_quality = np.argmax(z_scores)
 
-    return quality_score, max_index_quality
+    share_subgroup = len(targets_subgroup) / dataset_size
+
+    if share_subgroup != 0 and share_subgroup != 1:
+        entropy = -1*((share_subgroup*np.log2(share_subgroup)) + ((1-share_subgroup)*np.log2(1-share_subgroup)))
+        entropy = np.sqrt(entropy)
+    else:
+        entropy=0
+    entropy_quality_score = entropy * quality_score
+
+    return entropy_quality_score, max_index_quality
 
 
 def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size):
@@ -348,15 +357,19 @@ def metrics_match(metric1, metric2):
 
 def descriptors_similar_paper(quality, descriptor1, pq, min_quality_improvement):
     # If descriptor1 has only one metric, exit early
-    if len(descriptor1) == 1:
-        return False
+    # if len(descriptor1) == 1:
+    #     return False
 
     total_conditions = len(descriptor1) - 1
     descriptor_list = get_all_descriptors(pq, 1)
     quality_list = get_all_descriptors(pq, 0)
+    if len(descriptor1) == 1:
+         total_conditions = 1
 
     # Early exit based on quality difference
-    if min(abs(quality - q) for q in quality_list) > min_quality_improvement:
+    min_index = min(range(len(quality_list)), key=lambda i: abs(quality_list[i] - quality))
+    min_difference = abs(quality_list[min_index] - quality)
+    if min_difference > abs(quality_list[min_index]*min_quality_improvement):
         return False
     # Find indices where abs(quality - q) <= min_quality_improvement
     indices = [i for i, q in enumerate(quality_list) if abs(quality - q) <= min_quality_improvement]
