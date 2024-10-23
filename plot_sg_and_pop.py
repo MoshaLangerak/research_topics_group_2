@@ -6,7 +6,7 @@ import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 
 
-def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_labels=5, aggregate_subgroup=False, baseline_color="blue", subgroup_color="green", subgroup_opacity=0.7, short_legend=False, linewidth=2):
+def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_labels=5, aggregate_subgroup=False, baseline_color="blue", subgroup_color="green", subgroup_opacity=0.7, short_legend=False, linewidth=2, title = 'Subgroups plotted against the population baseline', yaxisname= 'percentage change (%)'):
     # Convert datetime to correct format
     date_labels = [dt.strftime('%d-%m-%Y') for dt in dates]
     
@@ -29,7 +29,7 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
             x=date_labels,
             y=aggregate_subgroup_ts,
             mode='lines',
-            name='Subgroups',  # Single legend entry for all subgroups --> default when aggregated
+            name='Subgroup',  # Single legend entry for all subgroups --> default when aggregated
             line=dict(color=subgroup_color, width=linewidth),
             opacity=1  # Full opacity --> default when aggregated
         ))
@@ -41,7 +41,7 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
                     x=date_labels,
                     y=subgroup,
                     mode='lines',
-                    name='Subgroups',  # Single legend entry for all subgroups
+                    name='Subgroup',  # Single legend entry for all subgroups
                     line=dict(color=subgroup_color, width=linewidth),
                     opacity=subgroup_opacity,
                     showlegend=(idx == 0)  # Show legend only for the first subgroup trace
@@ -61,9 +61,9 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
     # Update the layout of the plot
     fig.update_layout(
         template='plotly_white',
-        title='Subgroups plotted against the population baseline',
+        title=title,
         xaxis_title='Date',
-        yaxis_title='Value',
+        yaxis_title=yaxisname,
         xaxis=dict(
             tickmode='array',
             tickvals=tick_indices,
@@ -181,43 +181,116 @@ def plot_baseline_and_subgroup_heatmap(subgroups_dict, baseline, dates, freq_xax
 
     return fig
 
-# # Plot two test cases:
-#
-# # TEST CASE 1: Three time series each with 100 points
-#
-# # Create subgroups
-# subgroup_ts1 = list(3 + np.random.normal(0, 0.5, 100))  # Mean 3, small noise with standard deviation of 0.5
-# subgroup_ts2 = list(5 + np.random.normal(0, 0.5, 100))  # Mean 5, small noise with standard deviation of 0.5
-# subgroup_all_ts = {'ts1': subgroup_ts1, 'ts2': subgroup_ts2}
-#
-# # Create baseline (population line)
-# baseline = list(0 + np.random.normal(0, 0.5, 100))  # Mean 0, small noise with standard deviation of 0.5
-#
-# # Create the dates
-# start_date = datetime.datetime.now()
-# dates = [start_date + datetime.timedelta(days=i) for i in range(100)]
-#
-# fig = plot_baseline_and_subgroup(subgroup_all_ts, baseline, dates)
-# fig.show()
-#
-# # TEST CASE 2: Create n time series
-#
-# num_subgroups = 10
-#
-# baseline = list(0 + np.random.normal(0, 0.5, 100))
-#
-# # Initialize an empty dictionary to store subgroup time series
-# subgroups_dict = {}
-#
-# for i in range(1, num_subgroups + 1):
-#     # For diversity, adjust the mean for each subgroup
-#     mean = 3 + i * 0.5
-#     subgroup = list(mean + np.random.normal(0, 0.5, 100))
-#     subgroup_all_ts[f'ts{i}'] = subgroup  # Keys: 'ts1', 'ts2', ..., 'tsn'
-#
-# # Create the dates
-# start_date = datetime.datetime.now()
-# dates = [start_date + datetime.timedelta(days=i) for i in range(100)]
-#
-# fig = plot_baseline_and_subgroup(subgroup_all_ts, baseline, dates, subgroup_opacity=0.4, short_legend=True)
-# fig.show()
+def plot_baseline_and_subgroup_windows(subgroup_avg, baseline, dates, window_size=20, baseline_color="blue", subgroup_color="green", original_opacity=0.8, simplified_opacity=0.8, linewidth=2, title='Subgroups plotted against the population baseline', yaxisname='percentage change (%)'):
+    # Convert datetime to correct format
+    date_labels = [dt.strftime('%d-%m-%Y') for dt in dates]
+
+    window_boundaries = list(range(0, len(dates), window_size))
+
+    # Ensure the last date is included
+    if window_boundaries[-1] != len(dates) - 1:
+        window_boundaries.append(len(dates) - 1)
+
+    # Determine tick labels and vertical lines at window boundaries
+    tick_vals = window_boundaries
+    tick_text = [date_labels[i] for i in window_boundaries]
+
+    # Create the Plotly figure
+    fig = go.Figure()
+
+    # Add the subgroup average trace in green with adjusted opacity
+    fig.add_trace(go.Scatter(
+        x=date_labels,
+        y=subgroup_avg,
+        mode='lines',
+        name='Subgroup Average',
+        line=dict(color=subgroup_color, width=linewidth),
+        opacity=original_opacity
+    ))
+
+    # Add the baseline trace in blue with adjusted opacity
+    fig.add_trace(
+        go.Scatter(
+            x=date_labels,
+            y=baseline,
+            mode='lines',
+            name='Baseline',
+            line=dict(color=baseline_color, width=linewidth),
+            opacity=original_opacity
+        )
+    )
+
+    # Add vertical grey dashed lines at window boundaries
+    for boundary in window_boundaries:
+        fig.add_vline(x=date_labels[boundary], line=dict(color='grey', dash='dash', width=1))
+
+    # Compute and plot simplified baseline (average per window)
+    baseline_simplified = []
+    subgroup_simplified = []
+    window_midpoints = []
+
+    for i in range(len(window_boundaries) - 1):
+        start_idx = window_boundaries[i]
+        end_idx = window_boundaries[i+1]
+
+        # Compute average for baseline and subgroup within each window
+        baseline_window_avg = np.mean(baseline[start_idx:end_idx+1])
+        subgroup_window_avg = np.mean(subgroup_avg[start_idx:end_idx+1])
+
+        baseline_simplified.append(baseline_window_avg)
+        subgroup_simplified.append(subgroup_window_avg)
+
+        # Get the midpoint date for plotting
+        midpoint = start_idx + (end_idx - start_idx) // 2
+        window_midpoints.append(date_labels[midpoint])
+
+    # Plot simplified baseline with dots and connecting lines
+    fig.add_trace(go.Scatter(
+        x=window_midpoints,
+        y=baseline_simplified,
+        mode='lines+markers',
+        name='Baseline (windows)',
+        line=dict(color=baseline_color, width=linewidth),
+        marker=dict(size=8, symbol='circle', color=baseline_color),
+        opacity=simplified_opacity
+    ))
+
+    # Plot simplified subgroup average with dots and connecting lines
+    fig.add_trace(go.Scatter(
+        x=window_midpoints,
+        y=subgroup_simplified,
+        mode='lines+markers',
+        name='Subgroup Average (windows)',
+        line=dict(color=subgroup_color, width=linewidth),
+        marker=dict(size=8, symbol='circle', color=subgroup_color),
+        opacity=simplified_opacity
+    ))
+
+    # Update the layout of the plot
+    fig.update_layout(
+        template='plotly_white',
+        title=title,
+        xaxis_title='Date',
+        yaxis_title=yaxisname,
+        xaxis=dict(
+            tickmode='array',
+            tickvals=tick_vals,
+            ticktext=tick_text,
+            tickangle=45,  # Rotate x-axis labels for better readability
+            tickfont=dict(size=10)
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        margin=dict(l=50, r=50, t=80, b=80)  # Adjust margins for better spacing
+    )
+
+    # Show the figure
+    return fig
+
+
+
