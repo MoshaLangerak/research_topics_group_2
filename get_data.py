@@ -7,6 +7,15 @@ from tqdm import tqdm
 from load_data import load_data_from_pickle
 
 def get_stock_data(ticker):
+    """
+    Fetches the stock data for a given ticker symbol from Yahoo Finance.
+
+    Parameters:
+        ticker (str): The stock ticker symbol.
+
+    Returns:
+        dict: A dictionary containing the stock symbol, dates, and closing prices as a list.
+    """
     # Fetch the stock data
     stock_df = yf.download(symbol, start=start_date, end=end_date, progress=False)
     
