@@ -109,7 +109,7 @@ def refin(seed, data, types, nr_bins, descr_indices, index_col_dict, col_index_d
                 local0.append((index_col_dict[i], j, func1))  # descriptor for equality
                 res.append(local0)
 
-                # descriptor for not equality, not used because gives bad results
+                # descriptor for inequality, not used because gives bad results
                 # func2 = neq
                 # local1 = aux[:]
                 # local1.append((index_col_dict[i], j, func2))
@@ -118,22 +118,26 @@ def refin(seed, data, types, nr_bins, descr_indices, index_col_dict, col_index_d
     return res
 
 def put_item_in_queue(queue, quality, descriptor, size=0, window_index=0):
-    """Adds an item to a priority queue based on its quality.
+    """
+    Adds an item to a priority queue based on its quality. If the queue is full,
+    it replaces the item with the lowest quality if the new item's quality is higher.
 
     Args:
-        queue: The priority queue to which the item will be added.
-        quality: The quality measure of the item.
-        descriptor: The descriptor associated with the item.
-        size: The size of the subgroup represented by the descriptor.
+        queue: The priority queue to add the item to.
+        quality: Quality score of the item (higher is better).
+        descriptor: Description or identifier of the item.
+        size: Size of the item group (optional, default is 0).
+        window_index: Index of the window where quality score is max (optional, default is 0).
     """
-    if queue.full():  # if the queue is full
-        min_quality, min_descriptor, min_size, min_window_index = queue.get()  # get the lowest quality item
-        if min_quality >= quality:  # if the new item is not better, put the old one back
+    if queue.full():  # If queue is full, check for replacement
+        min_quality, min_descriptor, min_size, min_window_index = queue.get()  # Remove lowest quality item
+        if min_quality >= quality:  # If new item's quality is not higher, keep the old item
             queue.put((min_quality, min_descriptor, min_size, min_window_index))
-        else:  # otherwise, add the new item
+        else:  # Replace with the new item if its quality is better
             queue.put((quality, descriptor, size, window_index))
-    else:
-        queue.put((quality, descriptor, size, window_index))  # add new item to the queue
+    else:  # If queue has space, simply add the new item
+        queue.put((quality, descriptor, size, window_index))
+
 
 def categorize_columns_in_order(df, att_columns):
     """Categorizes columns of a DataFrame into numeric, binary, and nominal types.
@@ -170,14 +174,15 @@ def make_rolling_windows(growth_target, window_size):
     return np.lib.stride_tricks.sliding_window_view(growth_target, window_shape=window_size)[::window_size]
 
 def quality_measure(targets_subgroup, targets_baseline,
-                    aggregate_func_window=np.mean, aggregate_func=np.max, dataset_size = 78400):
+                    aggregate_func_window=np.mean, aggregate_func=np.mean, dataset_size = 78400):
     """Calculates a quality measure for a subgroup compared to a baseline.
 
     Args:
         targets_subgroup: list with timeseries where the timeseries are divided in windows (list with lists with lists)
         targets_baseline: list with baseline target values in windows (list with lists).
         aggregate_func_window: Function to aggregate over windows (default: mean).
-        aggregate_func: Function to aggregate the final quality measure (default: max).
+        aggregate_func: Function to aggregate the final quality measure (default: mean).
+        dataset_size: number of rows in the dataset
 
     Returns:
         A quality score representing the difference between the subgroup and baseline.
@@ -204,115 +209,20 @@ def quality_measure(targets_subgroup, targets_baseline,
 
     max_index_quality = np.argmax(z_scores)
 
-    share_subgroup = len(targets_subgroup) / dataset_size
+    # calculate subgroup proportion
+    proportion_subgroup = len(targets_subgroup) / dataset_size
 
-    if share_subgroup != 0 and share_subgroup != 1:
-        entropy = -1*((share_subgroup*np.log2(share_subgroup)) + ((1-share_subgroup)*np.log2(1-share_subgroup)))
-        entropy = np.sqrt(entropy)
+    # calculate sqrt entropy
+    if proportion_subgroup != 0 and proportion_subgroup != 1:
+        entropy = -1*((proportion_subgroup*np.log2(proportion_subgroup)) + ((1-proportion_subgroup)*np.log2(1-proportion_subgroup)))
+        sqrt_entropy = np.sqrt(entropy)
     else:
-        entropy=0
-    entropy_quality_score = entropy * quality_score
+        sqrt_entropy=0
+
+    # mulitply quality score with the sqrt entropy
+    entropy_quality_score = sqrt_entropy * quality_score
 
     return entropy_quality_score, max_index_quality
-
-
-def beam_search(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size):
-    """Performs beam search to identify optimal descriptors for subgroups.
-
-    Args:
-        data: The dataset to analyze.
-        targets_baseline: The baseline target values for comparison.
-        column_names: The names of the columns in the dataset.
-        beam_width: The number of descriptors to keep at each depth level.
-        beam_depth: The maximum depth of the beam search.
-        nr_bins: The number of bins to create for numeric attributes.
-        nr_saved: The number of best results to save.
-        subgroup_size: The minimum size of a subgroup to consider.
-        target: The target variable for which to evaluate subgroups.
-        types: The types of each column in the dataset (e.g., numeric, binary, nominal).
-        window_size: The size of the rolling window.
-
-    Returns:
-        A list of the best descriptor sets found during the search.
-    """
-    # Create dictionaries for indexing columns by name and vice versa
-    index_col_dict = {i: col for i, col in enumerate(column_names)}
-    col_index_dict = {col: i for i, col in enumerate(column_names)}
-    target_ind = column_names.index(target)  # Get index of the target column
-    att_indices = list(range(len(column_names)))  # Create a list of all indices
-    att_indices.remove(target_ind)  # Remove the target index from attribute indices
-
-    # Prepare data windows with rolling windows for the target variable
-    data_windows = []
-    for row in data:
-        new_row = row[:]  # Create a copy of the row
-        new_row[target_ind] = make_rolling_windows(row[target_ind], window_size)  # Apply rolling window
-        data_windows.append(new_row)  # Add the new row to data_windows
-
-    # Update the data and baseline targets to use rolling windows
-    data = data_windows
-    targets_baseline = make_rolling_windows(targets_baseline, window_size)
-
-    # Initialize a deque for the beam search and a priority queue for results
-    beam_queue = deque([()])  # Start with an empty seed
-    results = PriorityQueue(nr_saved)  # Queue to hold the best results
-
-    # Iterate through each depth of the beam search
-    for depth in range(beam_depth):
-        beam = PriorityQueue(beam_width)  # Initialize a new beam for this depth
-
-        # While there are seeds in the beam queue
-        while bool(beam_queue):
-            seed = beam_queue.popleft()  # Get the next seed descriptor
-            descriptor_set = refin(seed, data, types, nr_bins, att_indices, index_col_dict, col_index_dict)  # Refine descriptors based on seed
-
-            # Evaluate each descriptor set generated
-            for descriptor in descriptor_set:
-                subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
-                if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
-                    targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
-                    quality_result,_ = quality_measure(targets_subgroup, targets_baseline)  # Calculate quality measure
-                    put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup))  # Add to results queue
-                    put_item_in_queue(beam, quality_result, tuple(descriptor))  # Add to the current beam
-
-        # After processing the beam, update the beam queue with new combinations
-        while not beam.empty():
-            new_combination = beam.get()  # Get the highest quality descriptor from the beam
-            new_combination = new_combination[1]  # Extract the descriptor from the tuple
-            beam_queue.append(new_combination)  # Add it to the next depth of the beam search
-
-    # Compile results into a list and reverse to have the best results first
-    results_list = []
-    while not results.empty():
-        item = results.get()  # Get items from the results queue
-        results_list.append(item)  # Add to the results list
-    results_list.reverse()  # Reverse the list to have best results first
-
-    return results_list  # Return the list of best descriptor sets
-
-
-def filter_df_on_descriptors(df, descriptors):
-    """Filters a DataFrame based on specified descriptors.
-
-    Args:
-        df: The DataFrame to filter.
-        descriptors: A list of descriptors, each containing an attribute name, value, and operator.
-
-    Returns:
-        A filtered DataFrame where all descriptors hold true.
-    """
-    # Loop through each descriptor to apply filtering
-    for desc in descriptors:
-        # Apply the operator defined in the descriptor to filter the DataFrame
-        df = df[df[desc[0]].apply(lambda x: desc[2](x, desc[1]))]  # Filter based on the descriptor
-    return df  # Return the filtered DataFrame
-
-
-
-###########################################################################################################
-################# BEAM SEARCH WITH CONSTRAINT FROM PAPER ##################################################
-###########################################################################################################
-
 
 def get_all_descriptors(pq, index=1):
     """Retrieve all descriptors from a priority queue without altering its contents.
@@ -339,68 +249,92 @@ def get_all_descriptors(pq, index=1):
 
     return info
 
-# Helper function to check if two metrics match with tolerance
 def metrics_match(metric1, metric2):
+    """
+    Compares two metrics to determine if they match based on their values and functions.
+
+    Args:
+        metric1 (tuple): A tuple containing a value and a function (value1, func1).
+        metric2 (tuple): A tuple containing a value and a function (value2, func2).
+
+    Returns:
+        bool: True if the metrics match (i.e., same function and same value), False otherwise.
+    """
     value1, func1 = metric1
     value2, func2 = metric2
 
-    # If functions are different, metrics don't match
+    # If functions differ, metrics don't match
     if func1 != func2:
         return False
 
-    # If both values are numbers, compare within tolerance
+    # If values differ, metrics don't match
     if value1 != value2:
         return False
 
-    # In all other cases, no match
+    # If both the function and value match, return True
     return True
 
 def descriptors_similar_paper(quality, descriptor1, pq, min_quality_improvement):
-    # If descriptor1 has only one metric, exit early
+    """
+    Determines if descriptor1 is similar to any descriptors in a priority queue based on matching metrics
+    and a minimum quality improvement threshold.
+
+    Args:
+        quality (float): The quality score of descriptor1.
+        descriptor1 (list): The list of metrics for the first descriptor.
+        pq (PriorityQueue): Priority queue containing other descriptors.
+        min_quality_improvement (float): Minimum improvement in quality required to consider similarity.
+
+    Returns:
+        bool: True if a similar descriptor is found, False otherwise.
+    """
+    # If descriptor1 has only one metric, return False early (no comparison needed)
     if len(descriptor1) == 1:
         return False
 
+    # Total conditions to match (all but one metric must match)
     total_conditions = len(descriptor1) - 1
-    descriptor_list = get_all_descriptors(pq, 1)
-    quality_list = get_all_descriptors(pq, 0)
-    # if len(descriptor1) == 1:
-    #      total_conditions = 1
 
-    # Early exit based on quality difference
+    # Get descriptor and quality lists from the priority queue
+    descriptor_list = get_all_descriptors(pq, 1)  # Descriptors
+    quality_list = get_all_descriptors(pq, 0)     # Qualities
+
+    # Early exit if the closest quality difference is too large
     min_index = min(range(len(quality_list)), key=lambda i: abs(quality_list[i] - quality))
     min_difference = abs(quality_list[min_index] - quality)
-    if min_difference > abs(quality_list[min_index]*min_quality_improvement):
+    if min_difference > abs(quality_list[min_index] * min_quality_improvement):
         return False
-    # Find indices where abs(quality - q) <= min_quality_improvement
+
+    # Find indices where the quality difference is within the improvement threshold
     indices = [i for i, q in enumerate(quality_list) if abs(quality - q) <= min_quality_improvement]
 
-    # Filter descriptor_list based on these indices
+    # Filter descriptor_list based on matching indices
     filtered_descriptors = [descriptor_list[i] for i in indices]
 
-    # Compare descriptor1 against all other descriptors in pq
+    # Compare descriptor1 against all filtered descriptors
     for descriptor2 in filtered_descriptors:
         match_count = 0
 
-        # Create a copy of descriptor2 to mark used metrics
+        # Copy descriptor2 to track used metrics
         remaining_descriptor2 = list(descriptor2)
 
-        # Compare each metric in descriptor1 to all available metrics in descriptor2
+        # Compare each metric in descriptor1 with those in descriptor2
         for metric1_name, value1, func1 in descriptor1:
             matched = False
 
-            # Iterate over all metrics in descriptor2 with the same name
+            # Look for matching metrics in descriptor2
             for i, (metric2_name, value2, func2) in enumerate(remaining_descriptor2):
                 if metric1_name == metric2_name:
                     if metrics_match((value1, func1), (value2, func2)):
                         matched = True
-                        # Mark this metric as used by removing it from remaining metrics
+                        # Remove matched metric from remaining_descriptor2
                         remaining_descriptor2.pop(i)
                         break
 
             if matched:
                 match_count += 1
 
-            # If all but one metrics match, descriptors are considered similar
+            # If enough metrics match, consider descriptors similar
             if match_count >= total_conditions:
                 return True
 
@@ -408,69 +342,109 @@ def descriptors_similar_paper(quality, descriptor1, pq, min_quality_improvement)
     return False
 
 def dominance_pruning(pq, subgroup_size, col_index_dict, targets_baseline, data, target_ind, min_quality_improvement, agg_func, datasetsize):
-    descriptor_list = get_all_descriptors(pq, 1)
-    quality_list = get_all_descriptors(pq, 0)
-    for org_quality, org_descriptor in zip(quality_list, descriptor_list):
-        if len(org_descriptor) < 3:
-            continue
-        for cc in range(len(org_descriptor)):
-            temp_subgroup = org_descriptor[:cc] + org_descriptor[cc+1:]
-            subgroup = extract_subgroup(temp_subgroup, data, col_index_dict)  # Extract subgroup for the current descriptor
-            if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough and descriptor is not similar
-                targets_subgroup = [j[target_ind] for j in subgroup]  # Extract target values for the subgroup
-                quality_result, window_index_quality = quality_measure(targets_subgroup, targets_baseline, aggregate_func=agg_func, dataset_size=datasetsize)  # Calculate quality measure
-                if not descriptors_similar_paper(quality_result, temp_subgroup, pq, min_quality_improvement):# and quality_result > org_quality:
-                    put_item_in_queue(pq, quality_result, tuple(temp_subgroup), len(subgroup), window_index_quality)
-
-def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, min_quality_improvement, agg_func=np.max):
-    """Performs beam search with a constraint to avoid adding similar descriptors.
+    """
+    Performs dominance pruning on a priority queue of descriptors by evaluating subgroups formed by
+    removing individual metrics from each descriptor.
 
     Args:
-        data: The dataset to analyze.
-        targets_baseline: The baseline target values for comparison.
-        column_names: The names of the columns in the dataset.
-        beam_width: The number of descriptors to keep at each depth level.
-        beam_depth: The maximum depth of the beam search.
-        nr_bins: The number of bins to create for numeric attributes.
-        nr_saved: The number of best results to save.
-        subgroup_size: The minimum size of a subgroup to consider.
-        target: The target variable for which to evaluate subgroups.
-        types: The types of each column in the dataset (e.g., numeric, binary, nominal).
-        window_size: The size of the rolling window.
-        min_quality_improvement: minimal amount of improvement needed for beam search to include subgroup with similar descriptors in the results
+        pq (PriorityQueue): The priority queue containing descriptors and their quality measures.
+        subgroup_size (int): Minimum size required for a subgroup to be considered.
+        col_index_dict (dict): Dictionary mapping column names to their indices in the data.
+        targets_baseline (np.array): Baseline target values for quality comparison.
+        data (list): The dataset from which subgroups are extracted.
+        target_ind (int): Index of the target value in the dataset.
+        min_quality_improvement (float): Minimum required quality improvement for acceptance.
+        agg_func (function): Function used to aggregate quality measures.
+        datasetsize (int): Size of the dataset for quality calculations.
 
     Returns:
-        A list of the best descriptor sets found during the search, ensuring no similar descriptors.
+        None: The function modifies the priority queue in place.
+    """
+    # Get lists of descriptors and their corresponding quality measures from the priority queue
+    descriptor_list = get_all_descriptors(pq, 1)
+    quality_list = get_all_descriptors(pq, 0)
+
+    # Iterate through each descriptor and its quality
+    for org_quality, org_descriptor in zip(quality_list, descriptor_list):
+        # Skip descriptors with fewer than 3 metrics
+        if len(org_descriptor) < 3:
+            continue
+
+        # Evaluate each metric in the descriptor
+        for cc in range(len(org_descriptor)):
+            # Create a temporary subgroup by removing one metric at a time
+            temp_subgroup = org_descriptor[:cc] + org_descriptor[cc+1:]
+            # Extract the subgroup from the data based on the current descriptor
+            subgroup = extract_subgroup(temp_subgroup, data, col_index_dict)
+
+            # Ensure the subgroup is large enough
+            if len(subgroup) >= subgroup_size:
+                # Extract target values for the current subgroup
+                targets_subgroup = [j[target_ind] for j in subgroup]
+
+                # Calculate the quality measure for the subgroup
+                quality_result, window_index_quality = quality_measure(
+                    targets_subgroup, targets_baseline,
+                    aggregate_func=agg_func, dataset_size=datasetsize
+                )
+
+                # Check if the new descriptor is not similar to existing descriptors
+                if not descriptors_similar_paper(quality_result, temp_subgroup, pq, min_quality_improvement):
+                    # Add the new quality and descriptor to the priority queue
+                    put_item_in_queue(pq, quality_result, tuple(temp_subgroup), len(subgroup), window_index_quality)
+
+
+def beam_search_with_constraint(data, targets_baseline, column_names, beam_width, beam_depth, nr_bins, nr_saved, subgroup_size, target, types, window_size, min_quality_improvement, agg_func=np.mean):
+    """
+    Performs beam search with constraints to avoid adding similar descriptors.
+
+    Args:
+        data (list): The dataset to analyze.
+        targets_baseline (list): The baseline target values for comparison.
+        column_names (list): The names of the columns in the dataset.
+        beam_width (int): The number of descriptors to keep at each depth level.
+        beam_depth (int): The maximum depth of the beam search.
+        nr_bins (int): The number of bins to create for numeric attributes.
+        nr_saved (int): The number of best results to save.
+        subgroup_size (int): The minimum size of a subgroup to consider.
+        target (str): The target variable for which to evaluate subgroups.
+        types (list): The types of each column in the dataset (e.g., numeric, binary, nominal).
+        window_size (int): The size of the rolling window for target variable.
+        min_quality_improvement (float): Minimum improvement needed to include similar descriptors.
+        agg_func (function): Aggregation function for quality measures (default is np.mean).
+
+    Returns:
+        list: A list of the best descriptor sets found during the search, ensuring no similar descriptors.
     """
     # Create dictionaries for indexing columns by name and vice versa
     index_col_dict = {i: col for i, col in enumerate(column_names)}
     col_index_dict = {col: i for i, col in enumerate(column_names)}
     target_ind = column_names.index(target)  # Get index of the target column
-    att_indices = list(range(len(column_names)))  # Create a list of all indices
-    att_indices.remove(target_ind)  # Remove the target index from attribute indices
+    att_indices = list(range(len(column_names)))  # All attribute indices
+    att_indices.remove(target_ind)  # Remove target index from attributes
 
-    # Prepare data windows with rolling windows for the target variable
+    # Prepare data windows using rolling windows for the target variable
     data_windows = []
     for row in data:
-        new_row = row[:]  # Create a copy of the row
+        new_row = row[:]  # Copy the row
         new_row[target_ind] = make_rolling_windows(row[target_ind], window_size)  # Apply rolling window
         data_windows.append(new_row)  # Add the new row to data_windows
 
-    # Update the data and baseline targets to use rolling windows
+    # Update data and baseline targets to use rolling windows
     data = data_windows
     targets_baseline = make_rolling_windows(targets_baseline, window_size)
 
     # Initialize a deque for the beam search and a priority queue for results
     beam_queue = deque([()])  # Start with an empty seed
     results = PriorityQueue(nr_saved)  # Queue to hold the best results
-    results.put((0, [(0, 0, 0)], 0, 0))  # Add a dummy descriptor to initialize
+    results.put((0, [(0, 0, 0)], 0, 0))  # Initialize with a dummy descriptor
 
     # Iterate through each depth of the beam search
     for depth in range(beam_depth):
         beam = PriorityQueue(beam_width)  # Initialize a new beam for this depth
 
         # While there are seeds in the beam queue
-        while bool(beam_queue):
+        while beam_queue:
             seed = beam_queue.popleft()  # Get the next seed descriptor
             descriptor_set = refin(seed, data, types, nr_bins, att_indices, index_col_dict, col_index_dict)  # Refine descriptors based on seed
 
@@ -479,28 +453,49 @@ def beam_search_with_constraint(data, targets_baseline, column_names, beam_width
                 subgroup = extract_subgroup(descriptor, data, col_index_dict)  # Extract subgroup for the current descriptor
                 if len(subgroup) >= subgroup_size:  # Ensure subgroup is large enough
                     targets_subgroup = [i[target_ind] for i in subgroup]  # Extract target values for the subgroup
-                    quality_result, window_index_quality = quality_measure(targets_subgroup, targets_baseline, aggregate_func= agg_func, dataset_size=len(data))  # Calculate quality measure
-                    if not descriptors_similar_paper(quality_result, descriptor, results, min_quality_improvement): # check if there are already subgroups with similar descriptors
+                    quality_result, window_index_quality = quality_measure(
+                        targets_subgroup, targets_baseline,
+                        aggregate_func=agg_func, dataset_size=len(data)
+                    )  # Calculate quality measure
+
+                    # Check if the new descriptor is not similar to existing descriptors
+                    if not descriptors_similar_paper(quality_result, descriptor, results, min_quality_improvement):
                         put_item_in_queue(results, quality_result, tuple(descriptor), len(subgroup), window_index_quality)  # Add to results queue
                         put_item_in_queue(beam, quality_result, tuple(descriptor))  # Add to the current beam
 
         # After processing the beam, update the beam queue with new combinations
         while not beam.empty():
-            new_combination = beam.get()  # Get the highest quality descriptor from the beam
-            new_combination = new_combination[1]  # Extract the descriptor from the tuple
+            new_combination = beam.get()[1]  # Get the highest quality descriptor from the beam
             beam_queue.append(new_combination)  # Add it to the next depth of the beam search
 
+    # Apply dominance pruning to the results
     dominance_pruning(results, subgroup_size, col_index_dict, targets_baseline, data, target_ind, min_quality_improvement, agg_func, len(data))
+
     # Compile results into a list and reverse to have the best results first
     results_list = []
     while not results.empty():
         item = results.get()  # Get items from the results queue
         results_list.append(item)  # Add to the results list
-    results_list.reverse()  # Reverse the list to have best results first
+    results_list.reverse()  # Reverse to prioritize best results
 
     return results_list  # Return the list of best descriptor sets
 
 
 
+def filter_df_on_descriptors(df, descriptors):
+    """Filters a DataFrame based on specified descriptors.
+
+    Args:
+        df: The DataFrame to filter.
+        descriptors: A list of descriptors, each containing an attribute name, value, and operator.
+
+    Returns:
+        A filtered DataFrame where all descriptors hold true.
+    """
+    # Loop through each descriptor to apply filtering
+    for desc in descriptors:
+        # Apply the operator defined in the descriptor to filter the DataFrame
+        df = df[df[desc[0]].apply(lambda x: desc[2](x, desc[1]))]  # Filter based on the descriptor
+    return df  # Return the filtered DataFrame
 
 
