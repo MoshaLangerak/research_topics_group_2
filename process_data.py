@@ -6,6 +6,17 @@ from load_data import load_data_from_pickle, load_data_from_csv
 from features_time_series_generator import *
 
 def join_dfs(stock_data, time_series_data):
+    """
+    Joins the stock data and time series data DataFrames on the 'symbol' column.
+
+    Parameters:
+        stock_data (pd.DataFrame): The stock data DataFrame.
+        time_series_data (pd.DataFrame): The time series data DataFrame.
+    
+    Returns:
+        pd.DataFrame: The joined DataFrame.
+    """
+
     result = stock_data.join(time_series_data, how='inner')
     result.rename(columns={'time_series': 'target'}, inplace=True)
     # result['target'] = result['target'].apply(ast.literal_eval)
@@ -13,6 +24,17 @@ def join_dfs(stock_data, time_series_data):
     return result
 
 def merge_dicts(d1, d2):
+    """
+    Merges two dictionaries, combining values for common keys.
+
+    Parameters:
+        d1 (dict): The first dictionary.
+        d2 (dict): The second dictionary.
+    
+    Returns:
+        dict: The merged dictionary.
+    """
+
     for key, value in d2.items():
         if key in d1:
             # If the value is already a list, append the new value
@@ -90,6 +112,16 @@ def make_growth_target_df(stock_data):
     return stock_data
 
 def compute_features_for_df(df):
+    """
+    Computes features for a DataFrame containing stock data.
+
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing stock data.
+
+    Returns:
+        dict: A dictionary containing the computed features.
+    """
+
     new_features = {}
 
     for i, row in df.iterrows():
@@ -101,6 +133,22 @@ def compute_features_for_df(df):
     return new_features
 
 def fix_time_series_missing_data(df, all_dates, time_series_col, date_col, allowed_missing=60):
+    """
+    Fixes missing data in the time series of the DataFrame.
+
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing the time series data.
+        all_dates (list): A list of all the dates that should be present in the time series.
+        time_series_col (str): The name of the column containing the time series data.
+        date_col (str): The name of the column containing the dates.
+        allowed_missing (int): The maximum number of missing dates allowed in the time series.
+
+    Returns:
+        pd.DataFrame: The DataFrame with the missing data imputed.
+        list: The time series data.
+        list: The dates.
+    """
+
     time_series = [eval(ts) for ts in df[time_series_col].values]
     dates = [eval(date, {"Timestamp": pd.Timestamp}) for date in df[date_col].values]
 
@@ -154,12 +202,35 @@ def fix_time_series_missing_data(df, all_dates, time_series_col, date_col, allow
     return df, time_series, dates
 
 def filter_growth_target_for_outliers(df, max_growth_value=100, min_target_value=1):
+    """
+    Filters out the rows with outliers in the growth target.
+
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing the stock data.
+        max_growth_value (int): The maximum value allowed in the growth target.
+        min_target_value (int): The minimum value allowed in the target.
+    
+    Returns:
+        pd.DataFrame: The filtered DataFrame.
+    """
+
     # filter out the rows with a max value in the growth target
     df = df[df['growth_target'].apply(lambda x: max(x) < max_growth_value)]
     df = df[df['target'].apply(lambda x: min(x) > min_target_value)]
     return df
 
 def generate_dates_for_time_series(start_date, end_date):
+    """
+    Generates a list of dates for a time series.
+
+    Parameters:
+        start_date (datetime.datetime): The start date of the time series.
+        end_date (datetime.datetime): The end date of the time series.
+    
+    Returns:
+        dates: A list of dates for the time series.
+    """
+
     dates = []
     current_date = start_date
     while current_date <= end_date:
