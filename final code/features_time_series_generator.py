@@ -213,9 +213,9 @@ def compute_simple_features_growth_perc_ts(df):
     df['day_of_month'] = df['date'].dt.day
     features['best_day_of_month'] = df.groupby('day_of_month')['value'].mean().idxmax()
 
-    # feature for best week of the month --> is actually week of year
+    # feature for best week of year
     df['week_of_month'] = df['date'].dt.isocalendar().week
-    features['best_week_of_month'] = df.groupby('week_of_month')['value'].mean().idxmax()
+    features['best_week_of_year'] = df.groupby('week_of_month')['value'].mean().idxmax()
 
     df.drop(columns=['day_of_week', 'month', 'quarter', 'day_of_month', 'week_of_month'], inplace=True)
 
