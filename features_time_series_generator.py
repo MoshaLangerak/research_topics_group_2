@@ -197,7 +197,7 @@ def compute_simple_features_growth_perc_ts(df):
     slope, intercept, r_value, p_value, std_err = linregress(df['window_index'], df['percentage_growth'])
     features['trend_slope'] = round(slope, 5)
 
-        # feature for best day of the week
+    # feature for best day of the week
     df['day_of_week'] = df['date'].dt.dayofweek
     features['best_day_of_week'] = df.groupby('day_of_week')['value'].mean().idxmax()
 
@@ -213,7 +213,7 @@ def compute_simple_features_growth_perc_ts(df):
     df['day_of_month'] = df['date'].dt.day
     features['best_day_of_month'] = df.groupby('day_of_month')['value'].mean().idxmax()
 
-    # feature for best week of the month
+    # feature for best week of the month --> is actually week of year
     df['week_of_month'] = df['date'].dt.isocalendar().week
     features['best_week_of_month'] = df.groupby('week_of_month')['value'].mean().idxmax()
 
