@@ -4,25 +4,26 @@
 As part of the course Resarch Topics in Data Mining this project has been setup to study generation a novel quality measure and generating the descriptive space from the target space in an EMM setting for time-series data (specifically stock data).
 
 ## Project Structure
-Folder with outdated versions of code and datasets:  
-OLD  
-  
-Notebooks with experiments and results:  
-beam_search_experiment_top3.ipnyb  
-beam_search_plots.ipnyb  
-beam_search_window_experiment.ipnyb  
 
-Script for beam search implementation:  
-beam_search_module.py  
+### Folder with Outdated Versions of Code and Datasets
+- `OLD/`
 
-Zip folder with datasets:  
-datasets.zip
+### Notebooks with Experiments and Results
+- `beam_search_experiment_top3.ipynb`  
+- `beam_search_plots.ipynb`  
+- `beam_search_window_experiment.ipynb`  
 
-Scripts for data processing and feature generation:  
-feature_time_series_generator.py  
-get_data.py   
-plot_sg_and_pop.py  
-process_data.py  
+### Script for Beam Search Implementation
+- `beam_search_module.py`
+
+### Zip Folder with Datasets
+- `datasets.zip`
+
+### Scripts for Data Processing and Feature Generation
+- `feature_time_series_generator.py`  
+- `get_data.py`  
+- `plot_sg_and_pop.py`  
+- `process_data.py`
 
 ## Installation
 ### Prerequisites
