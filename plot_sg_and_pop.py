@@ -1,10 +1,5 @@
-import datetime
-import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import matplotlib.cm as cm
-from matplotlib.colors import Normalize
-
 
 def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_labels=5, aggregate_subgroup=False, baseline_color="blue", subgroup_color="green", subgroup_opacity=0.7, short_legend=False, linewidth=2, title='Subgroups plotted against the population baseline', yaxisname='percentage change (%)'):
     """
@@ -108,7 +103,3 @@ def plot_baseline_and_subgroup(subgroups_dict, baseline, dates, freq_xaxis_label
     ))
 
     return fig
-
-
-
-

@@ -1,6 +1,5 @@
 import pandas as pd
 import pickle
-import numpy as np
 
 def load_data_from_pickle(file_path):
     """
