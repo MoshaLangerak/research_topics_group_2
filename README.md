@@ -28,13 +28,13 @@ Provide an outline of the folder structure and files in your repo:
 
 ## Installation
 ### Prerequisites
-Can be installed by:
+Can be installed by:  
 pip install -r requirements.txt
 
 ### Datasets folder
-Make sure to unzip datasets.zip to achieve the following results:
-├── datasets
-│   ├── stock_data_for_emm.pkl
+Make sure to unzip datasets.zip to achieve the following results:  
+├── datasets  
+│   ├── stock_data_for_emm.pkl  
 
 ## Usage
 Steps for running this project:
