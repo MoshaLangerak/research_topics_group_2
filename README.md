@@ -1,14 +1,7 @@
 # Exceptional Model Mining for Time-Series Data: Descriptive Space Feature Generation and Interval-Based Quality Measures
 
 **Brief Description:**  
-Provide a short description of the project, the research problem being tackled, and the methodology used.
-
-
-## Overview
-
-Explain the motivation behind the project and give a brief overview of the research objectives.  
-- **Purpose**: Why is the project important? What specific problem are you addressing?  
-- **Research Focus**: Briefly explain the methodologies (data collection, modeling) and any specific machine learning algorithms or statistical methods used.
+As part of the course Resarch Topics in Data Mining this project has been setup to study generation a novel quality measure and generating the descriptive space from the target space in an EMM setting for time-series data (specifically stock data).
 
 ## Project Structure
 Folder with outdated versions of code and datasets:  
