@@ -16,13 +16,15 @@ As part of the course Resarch Topics in Data Mining this project has been setup 
 ### Script for Beam Search Implementation
 - `beam_search_module.py`
 
+### Script for Generating plots
+- `plot_sg_and_pop.py`  
+
 ### Zip Folder with Datasets
 - `datasets.zip`
 
 ### Scripts for Data Processing and Feature Generation
 - `feature_time_series_generator.py`  
 - `get_data.py`  
-- `plot_sg_and_pop.py`  
 - `process_data.py`
 
 ## Installation
