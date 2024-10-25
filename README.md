@@ -5,9 +5,6 @@ As part of the course Resarch Topics in Data Mining this project has been setup 
 
 ## Project Structure
 
-### Folder with Outdated Versions of Code and Datasets
-- `OLD/`
-
 ### Notebooks with Experiments and Results
 - `beam_search_experiment_top3.ipynb`  
 - `beam_search_plots.ipynb`  
